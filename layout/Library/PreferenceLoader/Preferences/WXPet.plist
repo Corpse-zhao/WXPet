@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      ⚠️⚠️ 铁律：PreferenceLoader 只认「entry 包裹」结构。
+         把这个 dict 摊平（直接只有 items 数组）会被**静默跳过** ——
+         Sileo 显示已安装，但「设置」里永远没有入口，且没有任何报错。
+         键名是 detail（不是 entryControllerClass），且必须在 entry 之内。
+         （DecoyLock / WXGlass 都在这条上踩过，CI 里有断言专门拦它）
+    -->
+    <key>entry</key>
+    <dict>
+        <key>bundle</key>
+        <string>WXPetPrefs</string>
+        <key>cell</key>
+        <string>PSLinkCell</string>
+        <key>detail</key>
+        <string>WXPetPrefsListController</string>
+        <key>isController</key>
+        <true/>
+        <key>label</key>
+        <string>悬浮宠物</string>
+    </dict>
+</dict>
+</plist>

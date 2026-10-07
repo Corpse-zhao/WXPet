@@ -1,0 +1,9 @@
+Package: com.banliren.wxpet
+Name: 悬浮宠物
+Depends: ellekit
+Version: 0.1.0
+Architecture: iphoneos-arm64e
+Description: 在桌面/指定 App 上悬浮一只小宠物：可拖动、会呼吸眨眼、点一下会跳。可自定义在哪些 App 里出现（默认仅微信）。只挂在 SpringBoard 渲染层，不注入任何目标 App。
+Maintainer: 板栗仁
+Author: 板栗仁
+Section: Tweaks

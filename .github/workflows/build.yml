@@ -1,0 +1,247 @@
+name: Build WXPet
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          # ⚠️ macOS 自带的 make 太老，roothide scheme 会解析失败 —— 必须用 brew 的 gmake
+          brew install make xz ldid
+
+      - name: Setup Theos (roothide 分支 + iOS SDK)
+        run: |
+          export THEOS=$HOME/theos
+          # ⚠️ 必须用 roothide/theos：官方 theos **没有** roothide package scheme，
+          #    会报 `'roothide' package scheme does not exist`。
+          #    scheme 模块实际位置 = $THEOS/vendor/mod/roothide
+          git clone --recursive https://github.com/roothide/theos.git $THEOS
+
+          # ⚠️ sdks 目录必须一次性建好：先 clone 到临时目录再 sparse-checkout，
+          #    不要 `cd $THEOS/sdks && git clone ... .`（目录已存在会 fatal 128）
+          #    TARGET 是 iphone:clang:latest:15.0 → SDK 必须 ≥ 15.0
+          git clone --depth 1 --filter=blob:none --sparse \
+            https://github.com/theos/sdks.git $THEOS/sdks-tmp
+          cd $THEOS/sdks-tmp
+          git sparse-checkout set iPhoneOS16.5.sdk
+          mv iPhoneOS16.5.sdk $THEOS/sdks/
+          rm -rf $THEOS/sdks-tmp
+
+          echo "--- SDK ---";        ls $THEOS/sdks/
+          echo "--- roothide scheme 模块 ---"; ls $THEOS/vendor/mod/roothide/ || true
+          echo "THEOS=$THEOS" >> $GITHUB_ENV
+          echo "$THEOS/bin" >> $GITHUB_PATH
+
+      # ⚠️ 顺序很重要：静态自检必须在 Build **之前**。
+      #    踩坑记录：预检排在 Build 后面时，编译一挂 → 预检被 skipped
+      #    → 看不到自检结论，白等一轮。
+      - name: Preflight — 静态自检
+        run: bash lint.sh
+
+      - name: Build package
+        run: |
+          export THEOS=$HOME/theos
+          # ⚠️ 绝对不要接 `| tail -NN` 或 `2>&1 | tail`：
+          #    管道会吞掉 make 的退出码 → scheme 报错那轮 GitHub 仍显示 success（假绿）
+          gmake package THEOS_PACKAGE_SCHEME=roothide FINALPACKAGE=1
+          ls -la packages/
+
+      - name: Verify package
+        run: |
+          python3 - <<'PY'
+          import glob, io, tarfile, struct, os, plistlib, sys
+
+          def fail(msg):
+              print("  ❌ " + msg)
+              sys.exit(1)
+
+          def ok(msg):
+              print("  ✅ " + msg)
+
+          def parse_ar(raw):
+              out, off = {}, 8
+              while off < len(raw):
+                  hdr = raw[off:off+60]
+                  if len(hdr) < 60:
+                      break
+                  name = hdr[0:16].decode(errors="ignore").strip().rstrip("/")
+                  try:
+                      size = int(hdr[48:58].decode(errors="ignore").strip())
+                  except Exception:
+                      break
+                  off += 60
+                  out[name] = raw[off:off+size]
+                  off += size + (size % 2)
+              return out
+
+          def cpusub(slices):
+              # ⚠️ 必须无符号解析：有符号时 0x80000002 = -2147483646，
+              #    判断 `== 2` 恒为假（这是之前踩过的坑）
+              return [(ct & 0xffffffff, cs & 0xffffffff) for ct, cs, _ in slices]
+
+          def slices_of(b):
+              out = []
+              if b[:4] == b"\xca\xfe\xba\xbe":          # fat, big-endian
+                  n = struct.unpack(">I", b[4:8])[0]
+                  off = 8
+                  for _ in range(n):
+                      ct, cs, o, sz, al = struct.unpack(">IIIII", b[off:off+20])
+                      off += 20
+                      out.append((ct, cs, sz))
+              elif b[:4] == b"\xcf\xfa\xed\xfe":         # thin 64-bit LE
+                  ct, cs = struct.unpack("<ii", b[4:12])
+                  out.append((ct & 0xffffffff, cs & 0xffffffff, len(b)))
+              return out
+
+          debs = sorted(glob.glob("packages/*.deb"))
+          if len(debs) != 1:
+              fail("packages/ 里的 .deb 数量是 %d，应为 1" % len(debs))
+          path = debs[0]
+          print("==> %s (%d B)" % (path, os.path.getsize(path)))
+          if not path.endswith("_iphoneos-arm64e.deb"):
+              fail("包名后缀不是 _iphoneos-arm64e.deb → roothide 的 Sileo 会拒装")
+          ok("包名后缀 = iphoneos-arm64e")
+
+          raw = open(path, "rb").read()
+          ar = parse_ar(raw)
+
+          # ── control ──
+          ct = next((v for k, v in ar.items() if k.startswith("control.tar")), None)
+          if not ct:
+              fail("包里没有 control.tar")
+          with tarfile.open(fileobj=io.BytesIO(ct)) as tf:
+              ctlname = next((n for n in tf.getnames() if n.endswith("control")), None)
+              ctl = tf.extractfile(ctlname).read().decode(errors="replace")
+          fields = dict(l.split(":", 1) for l in ctl.splitlines() if ":" in l)
+          fields = {k.strip(): v.strip() for k, v in fields.items()}
+          if fields.get("Architecture") != "iphoneos-arm64e":
+              fail("control Architecture = %s，应为 iphoneos-arm64e" % fields.get("Architecture"))
+          if fields.get("Package") != "com.banliren.wxpet":
+              fail("control Package 不对：%s" % fields.get("Package"))
+          if fields.get("Version") != "0.1.0":
+              fail("control Version = %s，应为 0.1.0" % fields.get("Version"))
+          ok("control: %s %s %s" % (fields.get("Package"), fields.get("Version"), fields.get("Architecture")))
+
+          # ── data.tar ──
+          dt = next((v for k, v in ar.items() if k.startswith("data.tar")), None)
+          if not dt:
+              fail("包里没有 data.tar")
+          with tarfile.open(fileobj=io.BytesIO(dt)) as tf:
+              names = [n.lstrip("./") for n in tf.getnames() if not n.endswith("/")]
+              blobs = {}
+              for m in tf.getmembers():
+                  if m.isfile():
+                      blobs[m.name.lstrip("./")] = tf.extractfile(m).read()
+
+          if any(n.startswith("var/jb/") for n in names):
+              fail("载荷里出现 var/jb 前缀 → 用了 rootless 方案，roothide 设备会拒装")
+          ok("载荷路径无 var/jb 前缀（roothide 相对路径 %d 个文件）" % len(names))
+
+          def need(suffix, desc):
+              hit = [n for n in names if n.endswith(suffix)]
+              if not hit:
+                  fail("包里找不到 %s（%s）" % (suffix, desc))
+              return hit[0]
+
+          # 1) 插件本体
+          dylib = need("Library/MobileSubstrate/DynamicLibraries/WXPet.dylib", "插件 dylib")
+          filter_plist = need("Library/MobileSubstrate/DynamicLibraries/WXPet.plist", "注入清单")
+          ok("插件本体：%s" % filter_plist)
+
+          # 2) ⭐ 注入清单只能有 SpringBoard（架构底线）
+          fp = plistlib.loads(blobs[filter_plist])
+          bundles = fp.get("Filter", {}).get("Bundles", [])
+          if bundles != ["com.apple.springboard"]:
+              fail("注入清单不是「只有 com.apple.springboard」：%r" % (bundles,))
+          joined = " ".join(bundles).lower()
+          for badword in ("tencent", "wechat", "weixin", "wetype"):
+              if badword in joined:
+                  fail("注入清单里出现了目标 App（%s）—— 架构底线被破坏" % badword)
+          ok("注入清单 = %r（未注入任何目标 App）" % (bundles,))
+
+          # 3) 入口 plist（PreferenceLoader）
+          entry = need("Library/PreferenceLoader/Preferences/WXPet.plist", "设置入口")
+          ep = plistlib.loads(blobs[entry])
+          if "entry" not in ep:
+              fail("入口 plist 缺 entry 包裹 → 设置里永远没有入口")
+          for k in ("bundle", "cell", "detail", "isController", "label"):
+              if k not in ep["entry"]:
+                  fail("入口 plist 的 entry 缺 %s" % k)
+          ok("设置入口 entry 五键齐全")
+
+          # 4) prefs bundle 的 Info.plist（⚠️ 用 plistlib 读，绝不能字符串搜索 ——
+          #    包内 plist 已被转成二进制，字符串搜索恒为 False，会假红）
+          b_info = need("Library/PreferenceBundles/WXPetPrefs.bundle/Info.plist", "面板 Info.plist")
+          ip = plistlib.loads(blobs[b_info])
+          if ip.get("NSPrincipalClass") != "WXPetPrefsListController":
+              fail("NSPrincipalClass = %r，应为 WXPetPrefsListController"
+                   % ip.get("NSPrincipalClass"))
+          ok("NSPrincipalClass = WXPetPrefsListController")
+
+          b_root = need("Library/PreferenceBundles/WXPetPrefs.bundle/Root.plist", "面板 Root.plist")
+          rp = plistlib.loads(blobs[b_root])
+          actions = set()
+          for it in rp.get("items", []):
+              if "action" in it:
+                  actions.add(it["action"])
+          if len(actions) < 6:
+              fail("Root.plist 里的 action 只有 %d 个，预期 ≥ 6" % len(actions))
+          ok("面板 action %d 个：%s" % (len(actions), ", ".join(sorted(actions))))
+
+          # 5) postinst
+          need("DEBIAN/postinst", "postinst 脚本")
+          ok("postinst 已打包")
+
+          # 6) Mach-O 切片：必须同时有 arm64 和 arm64e
+          for rel in (dylib, need("Library/PreferenceBundles/WXPetPrefs.bundle/WXPetPrefs",
+                                  "面板二进制")):
+              sl = slices_of(blobs[rel])
+              subs = cpusub(sl)
+              has_arm64e = any((cs & 0xffffff) == 2 for _, cs in subs)
+              has_arm64  = any((cs & 0xffffff) == 0 for _, cs in subs)
+              if not (has_arm64e and has_arm64):
+                  fail("%s 的切片不齐：%r（需要 arm64 + arm64e）" % (rel, subs))
+              ok("%s 切片齐：arm64 + arm64e" % os.path.basename(rel))
+
+          # 7) 关键实现真的编进去了（ASCII 常量），且禁忌代码没编进去
+          blob = blobs[dylib]
+          for token, desc in ((b"_wxpet_probe.txt", "探针兜底路径"),
+                              (b"com.banliren.wxpet.prefschanged", "跨进程配置通知"),
+                              (b"hitTest:withEvent:", "触摸放行实现")):
+              if token not in blob:
+                  fail("dylib 里找不到 %s（%s）—— 这段代码没编进去"
+                       % (token.decode(), desc))
+          ok("关键实现已编入（探针 / 通知 / hitTest）")
+
+          if b"makeKeyAndVisible" in blob:
+              fail("dylib 里出现了 makeKeyAndVisible —— 会抢系统 key window，"
+                   "下层界面会「看得见但点不动」")
+          ok("未编入 makeKeyAndVisible（不会抢 key window）")
+
+          # 8) 中文探针文案是 UTF-16LE，按 UTF-8 搜恒为 0 条 —— 必须解码后再搜
+          try:
+              u16 = blob.decode("utf-16-le", errors="ignore")
+          except Exception:
+              u16 = ""
+          if "启动" not in u16:
+              fail("dylib 里找不到中文启动横幅（UTF-16LE 解码后）—— 启动日志没编进去")
+          ok("中文探针文案已编入（UTF-16LE 校验）")
+
+          print("")
+          print("✅ 全部校验通过：%s" % path)
+          PY
+
+      - name: Upload .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: WXPet-deb
+          path: packages/*.deb
+          if-no-files-found: error

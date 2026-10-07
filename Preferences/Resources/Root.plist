@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      ⚠️ 用标准 XML plist（不要用 JSON 风格）：
+         Theos 在 FINALPACKAGE=1 时会把 staging 里所有 .plist 用 plutil 转成
+         二进制 plist。plutil 恰好能读 JSON，所以 JSON 写法也能跑 ——
+         但那是在依赖一个隐式行为，换成标准 XML 就没有这个不确定性。
+      ⚠️ 每个 action 都必须在 WXPetPrefsListController.m 里有实现，
+         否则点了毫无反应且不报错（CI 里有一条交叉校验专门拦这个）。
+    -->
+    <key>items</key>
+    <array>
+        <dict>
+            <key>cell</key>
+            <string>PSGroupCell</string>
+            <key>label</key>
+            <string>悬浮宠物</string>
+            <key>footerText</key>
+            <string>宠物是一个悬浮在屏幕上的小挂件，可拖动、会呼吸眨眼、点一下会跳、长按变半透明。它挂在系统桌面（SpringBoard）的渲染层上，不注入任何 App —— 所以不会有封号风险。</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSSwitchCell</string>
+            <key>label</key>
+            <string>启用插件</string>
+            <key>key</key>
+            <string>enabled</string>
+            <key>default</key>
+            <false/>
+        </dict>
+
+        <dict>
+            <key>cell</key>
+            <string>PSGroupCell</string>
+            <key>label</key>
+            <string>显示范围</string>
+            <key>footerText</key>
+            <string>默认只在勾选的 App 里出现（预勾了微信）。想让它到处都是，把模式改成「所有 App 都显示」。</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSLinkCell</string>
+            <key>label</key>
+            <string>显示范围模式</string>
+            <key>action</key>
+            <string>pushShareMode:</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSLinkCell</string>
+            <key>label</key>
+            <string>选择显示的 App</string>
+            <key>action</key>
+            <string>pushAppPicker:</string>
+        </dict>
+
+        <dict>
+            <key>cell</key>
+            <string>PSGroupCell</string>
+            <key>label</key>
+            <string>外观</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSSliderCell</string>
+            <key>label</key>
+            <string>大小</string>
+            <key>key</key>
+            <string>pet_scale</string>
+            <key>min</key>
+            <real>0.6</real>
+            <key>max</key>
+            <real>1.8</real>
+            <key>default</key>
+            <real>1.0</real>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSSliderCell</string>
+            <key>label</key>
+            <string>不透明度</string>
+            <key>key</key>
+            <string>pet_alpha</string>
+            <key>min</key>
+            <real>0.2</real>
+            <key>max</key>
+            <real>1.0</real>
+            <key>default</key>
+            <real>1.0</real>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSSwitchCell</string>
+            <key>label</key>
+            <string>允许拖动</string>
+            <key>key</key>
+            <string>draggable</string>
+            <key>default</key>
+            <true/>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSSwitchCell</string>
+            <key>label</key>
+            <string>松手吸附屏幕边缘</string>
+            <key>key</key>
+            <string>snap_edge</string>
+            <key>default</key>
+            <true/>
+        </dict>
+
+        <dict>
+            <key>cell</key>
+            <string>PSGroupCell</string>
+            <key>label</key>
+            <string>位置</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSButtonCell</string>
+            <key>label</key>
+            <string>重置到屏幕右下角</string>
+            <key>action</key>
+            <string>resetPosition</string>
+        </dict>
+
+        <dict>
+            <key>cell</key>
+            <string>PSGroupCell</string>
+            <key>label</key>
+            <string>排障</string>
+            <key>footerText</key>
+            <string>如果开了总开关、也进了微信，却看不到宠物 —— 先打开「前台判定失败时也显示」：能看到说明宠物本身没问题，是系统版本的前台判定接口跟本插件对不上，把诊断日志发我即可。</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSSwitchCell</string>
+            <key>label</key>
+            <string>前台判定失败时也显示（调试）</string>
+            <key>key</key>
+            <string>always_show</string>
+            <key>default</key>
+            <false/>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSButtonCell</string>
+            <key>label</key>
+            <string>查看运行诊断</string>
+            <key>action</key>
+            <string>showProbe</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSButtonCell</string>
+            <key>label</key>
+            <string>清除诊断日志</string>
+            <key>action</key>
+            <string>clearProbe</string>
+        </dict>
+        <dict>
+            <key>cell</key>
+            <string>PSButtonCell</string>
+            <key>label</key>
+            <string>重启桌面生效</string>
+            <key>action</key>
+            <string>respring</string>
+        </dict>
+
+        <dict>
+            <key>cell</key>
+            <string>PSGroupCell</string>
+            <key>label</key>
+            <string></string>
+            <key>footerText</key>
+            <string>悬浮宠物 v0.1.0 · 作者 板栗仁</string>
+        </dict>
+    </array>
+</dict>
+</plist>

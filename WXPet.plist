@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      ⭐⭐ 注入清单：**只有 SpringBoard 一个进程**。
+
+      为什么只注入 SpringBoard 就够：
+        悬浮窗是在 SpringBoard 进程里创建的一个高层级 UIWindow
+        （windowLevel = 1000000），渲染服务器按 windowLevel 合成，
+        它天然盖在所有 App 的窗口之上 —— 微信只是「被盖住」的那个，
+        我们不需要往它里面塞任何东西。
+
+      为什么**必须**只注入 SpringBoard（而不是顺手也注入微信）：
+        · 注入第三方 App = 逆向/修改其二进制，违反《微信软件许可及服务协议》
+        · 腾讯风控检测到注入是**设备级封号**，代价是绑着支付和通讯录的微信号
+        · 而「仅在某些 App 显示」这件事 SpringBoard 自己就能判断
+          （它本来就知道当前前台是谁），根本不需要进目标 App 的进程
+
+      ⚠️ 不要往这里加微信或其它 App 的 bundle id。
+         加了就等于把「零风险方案」换成「封号方案」，白做。
+    -->
+    <key>Filter</key>
+    <dict>
+        <key>Bundles</key>
+        <array>
+            <string>com.apple.springboard</string>
+        </array>
+    </dict>
+</dict>
+</plist>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>Chinese</string>
+    <key>CFBundleDisplayName</key>
+    <string>悬浮宠物</string>
+    <key>CFBundleExecutable</key>
+    <string>WXPetPrefs</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.banliren.wxpetprefs</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>WXPetPrefs</string>
+    <key>CFBundlePackageType</key>
+    <string>BNDL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>0.1.0</string>
+    <!--
+      ⚠️⚠️ 必须写**控制器的真实类名**。
+      写成 PSListController（抽象基类）的话，PreferenceLoader 加载 bundle 时
+      拿不到可用控制器 → 点击入口白屏或闪退，而且不会报任何错。
+      （DecoyLock v0.1.x / WXGlass v0.1.2 都在这条上踩过）
+    -->
+    <key>NSPrincipalClass</key>
+    <string>WXPetPrefsListController</string>
+</dict>
+</plist>

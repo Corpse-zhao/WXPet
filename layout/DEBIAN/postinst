@@ -1,0 +1,19 @@
+#!/bin/bash
+# 悬浮宠物 postinst
+#
+# 预建共享目录并放开权限：
+#   · SpringBoard 进程（插件侧）要能写配置和探针
+#   · 「设置」进程（面板侧）也要能写 —— 两边必须落同一个文件才能通信
+#   · pet/ 子目录是留给用户放自定义精灵帧的
+#     放满 idle_1.png、idle_2.png…… 两张以上，宠物自动换成你的图
+DIR="/var/mobile/Documents/悬浮宠物"
+mkdir -p "$DIR/pet"
+chmod 777 "$DIR" "$DIR/pet" 2>/dev/null || true
+chown mobile:mobile "$DIR" "$DIR/pet" 2>/dev/null || true
+
+# 升级场景：清掉上一版可能残留的空探针文件（不影响历史日志的追加语义）
+if [ -f "$DIR/_probe.txt" ] && [ ! -s "$DIR/_probe.txt" ]; then
+    rm -f "$DIR/_probe.txt"
+fi
+
+exit 0
