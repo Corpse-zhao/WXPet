@@ -113,13 +113,19 @@ jobs:
           raw = open(path, "rb").read()
           ar = parse_ar(raw)
 
-          # ── control ──
+          # ── control.tar：control 字段 + DEBIAN 脚本
           ct = next((v for k, v in ar.items() if k.startswith("control.tar")), None)
           if not ct:
               fail("包里没有 control.tar")
+          ctl_members = {}
           with tarfile.open(fileobj=io.BytesIO(ct)) as tf:
-              ctlname = next((n for n in tf.getnames() if n.endswith("control")), None)
-              ctl = tf.extractfile(ctlname).read().decode(errors="replace")
+              for m in tf.getmembers():
+                  if m.isfile():
+                      ctl_members[m.name.lstrip("./")] = m
+              ctlname = next((n for n in ctl_members if n.endswith("control")), None)
+              if not ctlname:
+                  fail("control.tar 里没有 control 文件")
+              ctl = tf.extractfile(ctl_members[ctlname]).read().decode(errors="replace")
           fields = dict(l.split(":", 1) for l in ctl.splitlines() if ":" in l)
           fields = {k.strip(): v.strip() for k, v in fields.items()}
           if fields.get("Architecture") != "iphoneos-arm64e":
@@ -197,8 +203,22 @@ jobs:
           ok("面板 action %d 个：%s" % (len(actions), ", ".join(sorted(actions))))
 
           # 5) postinst
-          need("DEBIAN/postinst", "postinst 脚本")
-          ok("postinst 已打包")
+          # ⚠️⚠️ 血泪：DEBIAN 脚本在 **control.tar** 里，不在 data.tar！
+          #    v0.1.0 第一轮 Verify 只在 data.tar 找 → 报「找不到 DEBIAN/postinst」
+          #    而包其实完全正确 —— 是校验在撒谎（假红）。
+          #    正确做法：两个 tar 都找，并回显它落在哪个里面。
+          postinst = next((n for n in ctl_members if n.endswith("DEBIAN/postinst")), None)
+          where = "control.tar"
+          if not postinst:
+              postinst = next((n for n in names if n.endswith("DEBIAN/postinst")), None)
+              where = "data.tar"
+          if not postinst:
+              fail("两个 tar 里都找不到 DEBIAN/postinst —— 安装脚本没进包")
+          mode = ctl_members[postinst].mode if where == "control.tar" else 0o755
+          if not (mode & 0o111):
+              fail("DEBIAN/postinst 模式是 %o（无执行位）→ dpkg 不会执行它，"
+                   "共享目录不会被创建" % mode)
+          ok("postinst 已打包（%s，mode %o）" % (where, mode))
 
           # 6) Mach-O 切片：必须同时有 arm64 和 arm64e
           for rel in (dylib, need("Library/PreferenceBundles/WXPetPrefs.bundle/WXPetPrefs",
@@ -240,6 +260,9 @@ jobs:
           PY
 
       - name: Upload .deb
+        # ⚠️ always()：即使 Verify 判红也要把包装上去。
+        #    否则「包其实是对的、是某条断言写错了」这种情况会逼人白等一整轮。
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: WXPet-deb
