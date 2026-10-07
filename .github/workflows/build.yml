@@ -44,7 +44,14 @@ jobs:
       #    踩坑记录：预检排在 Build 后面时，编译一挂 → 预检被 skipped
       #    → 看不到自检结论，白等一轮。
       - name: Preflight — 静态自检
-        run: bash lint.sh
+        run: |
+          # ⚠️ 先把执行位补齐再 preflight，让「包的正确性」与「git 的 mode」解耦：
+          #    postinst 丢了执行位 → dpkg 不执行它 → 共享目录不建 → 插件静默不工作，
+          #    而且**装的时候不会报任何错**，最难查。Windows 上 core.filemode=false
+          #    很容易把 755 提交成 644，所以这里显式兜一道。
+          chmod +x layout/DEBIAN/postinst lint.sh
+          ls -l layout/DEBIAN/postinst
+          bash lint.sh
 
       - name: Build package
         run: |
@@ -203,22 +210,30 @@ jobs:
           ok("面板 action %d 个：%s" % (len(actions), ", ".join(sorted(actions))))
 
           # 5) postinst
-          # ⚠️⚠️ 血泪：DEBIAN 脚本在 **control.tar** 里，不在 data.tar！
-          #    v0.1.0 第一轮 Verify 只在 data.tar 找 → 报「找不到 DEBIAN/postinst」
-          #    而包其实完全正确 —— 是校验在撒谎（假红）。
-          #    正确做法：两个 tar 都找，并回显它落在哪个里面。
-          postinst = next((n for n in ctl_members if n.endswith("DEBIAN/postinst")), None)
+          # ⚠️⚠️ 两轮血泪，逐条记死：
+          #   ① 维护者脚本在 **control.tar** 里，不在 data.tar。
+          #      第一轮只在 data.tar 找 → 假红。
+          #   ② 路径是 **平铺的 `./postinst`**，**没有 `DEBIAN/` 前缀**！
+          #      这是 Theos 的 dm.pl 的布局（对照物：DecoyLock v0.2.6 成功包
+          #      的 control.tar = ['.', './control', './postinst']）；
+          #      带 `DEBIAN/` 前缀的是手写 dpkg-deb 的老式布局。
+          #      第二轮写成 endswith("DEBIAN/postinst") → 又一次假红。
+          #    ⇒ 判定一律用 **basename**，并同时兼容两种布局。
+          postinst = next((n for n in ctl_members
+                           if os.path.basename(n) == "postinst"), None)
           where = "control.tar"
           if not postinst:
-              postinst = next((n for n in names if n.endswith("DEBIAN/postinst")), None)
+              postinst = next((n for n in names
+                               if os.path.basename(n) == "postinst"), None)
               where = "data.tar"
           if not postinst:
-              fail("两个 tar 里都找不到 DEBIAN/postinst —— 安装脚本没进包")
+              fail("两个 tar 里都找不到 postinst —— 安装脚本没进包"
+                   "（control.tar 实有成员 %s）" % sorted(ctl_members))
           mode = ctl_members[postinst].mode if where == "control.tar" else 0o755
           if not (mode & 0o111):
-              fail("DEBIAN/postinst 模式是 %o（无执行位）→ dpkg 不会执行它，"
+              fail("postinst 模式是 %o（无执行位）→ dpkg 不会执行它，"
                    "共享目录不会被创建" % mode)
-          ok("postinst 已打包（%s，mode %o）" % (where, mode))
+          ok("postinst 已打包（%s，路径 %s，mode %o）" % (where, postinst, mode))
 
           # 6) Mach-O 切片：必须同时有 arm64 和 arm64e
           for rel in (dylib, need("Library/PreferenceBundles/WXPetPrefs.bundle/WXPetPrefs",
