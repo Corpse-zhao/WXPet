@@ -19,11 +19,11 @@ if command -v python3 >/dev/null 2>&1; then PY=$(command -v python3)
 elif command -v python >/dev/null 2>&1; then PY=$(command -v python)
 fi
 
-echo "═══ WXPet 静态预检 ═══"
+echo "═══ WXPet 静态预检（17 组）═══"
 echo ""
 
 # ── 1. 打包方案 ──────────────────────────────────────────────
-echo "[1/16] 打包方案（roothide 隐根）"
+echo "[1/17] 打包方案（roothide 隐根）"
 if grep -q 'THEOS_PACKAGE_SCHEME = roothide' Makefile 2>/dev/null; then
     ok "Makefile: THEOS_PACKAGE_SCHEME = roothide"
 else
@@ -44,7 +44,7 @@ fi
 # 这是本项目的**架构底线**：一旦往清单里加了微信，方案就从
 # 「零风险装饰层」变成「逆向第三方 App」，收益为 0、风险极大。
 echo ""
-echo "[2/16] ⭐ 注入清单只允许 SpringBoard"
+echo "[2/17] ⭐ 注入清单只允许 SpringBoard"
 if grep -q 'com.apple.springboard' WXPet.plist 2>/dev/null; then
     ok "filter plist 含 com.apple.springboard"
 else
@@ -64,7 +64,7 @@ fi
 
 # ── 3. ⭐⭐ 禁止抢 key window ────────────────────────────────
 echo ""
-echo "[3/16] ⭐ 禁止 makeKeyAndVisible（抢系统 key window）"
+echo "[3/17] ⭐ 禁止 makeKeyAndVisible（抢系统 key window）"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys
@@ -91,7 +91,7 @@ fi
 
 # ── 4. ⭐⭐ 触摸穿透 ─────────────────────────────────────────
 echo ""
-echo "[4/16] ⭐ hitTest 必须放行宠物区域之外的触摸"
+echo "[4/17] ⭐ hitTest 必须放行宠物区域之外的触摸"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys
@@ -122,7 +122,7 @@ fi
 
 # ── 5. ⭐ windowScene 必须挂 ─────────────────────────────────
 echo ""
-echo "[5/16] ⭐ 窗口必须挂到 windowScene（iOS 13+ 不挂就不显示）"
+echo "[5/17] ⭐ 窗口必须挂到 windowScene（iOS 13+ 不挂就不显示）"
 if grep -q 'windowScene = best' WXPetWindow.m 2>/dev/null; then
     ok "WXPetWindow.m 会设置 windowScene"
 else
@@ -141,7 +141,7 @@ fi
 
 # ── 6. ⭐ 前台判定链路 ───────────────────────────────────────
 echo ""
-echo "[6/16] ⭐ 前台判定：多候选 + 被可见性逻辑使用 + fail-closed"
+echo "[6/17] ⭐ 前台判定：多候选 + 被可见性逻辑使用 + fail-closed"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys
@@ -193,7 +193,7 @@ fi
 
 # ── 7. 禁止手写 %init ───────────────────────────────────────
 echo ""
-echo "[7/16] 禁止手写 %init（Logos 源码实锤：会造成前置引用，编译直接失败）"
+echo "[7/17] 禁止手写 %init（Logos 源码实锤：会造成前置引用，编译直接失败）"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys
@@ -213,7 +213,7 @@ fi
 
 # ── 8. 同一个类只能一个 %hook 块 ────────────────────────────
 echo ""
-echo "[8/16] 同一个类只能有一个 %hook 块"
+echo "[8/17] 同一个类只能有一个 %hook 块"
 DUP=$(grep -oE '^%hook[[:space:]]+[A-Za-z_][A-Za-z0-9_]*' Tweak.x 2>/dev/null | awk '{print $2}' | sort | uniq -d)
 if [ -n "$DUP" ]; then
     bad "以下类出现了多个 %hook 块（后者会覆盖前者，前面的钩子静默失效）：$(echo "$DUP" | tr '\n' ' ')"
@@ -223,7 +223,7 @@ fi
 
 # ── 9. 日志格式串里的字面 % 必须转义 ────────────────────────
 echo ""
-echo "[9/16] 日志格式串的字面 %% 必须写成 %%%%"
+echo "[9/17] 日志格式串的字面 %% 必须写成 %%%%"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys, glob
@@ -271,7 +271,7 @@ fi
 
 # ── 10. objc 运行时函数必须有可见声明 ───────────────────────
 echo ""
-echo "[10/16] objc 运行时函数的可见声明"
+echo "[10/17] objc 运行时函数的可见声明"
 RUNTIME_API='object_getClass|class_getInstanceMethod|class_getMethodImplementation|method_copyReturnType|method_copyArgumentType|method_getTypeEncoding|objc_getClassList|objc_copyClassList|objc_getClass|class_addMethod|method_setImplementation'
 for f in Tweak.x WXPCommon.m WXPFrontmost.m WXPetView.m WXPetWindow.m WXPetManager.m Preferences/WXPetPrefsListController.m; do
     [ -f "$f" ] || continue
@@ -286,7 +286,7 @@ done
 
 # ── 11. ARC 桥接 ────────────────────────────────────────────
 echo ""
-echo "[11/16] ARC 桥接（ObjC 指针当 C 指针用必须 __bridge）"
+echo "[11/17] ARC 桥接（ObjC 指针当 C 指针用必须 __bridge）"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys, glob
@@ -318,7 +318,7 @@ fi
 
 # ── 12. 文件作用域 static 变量必须被使用 ────────────────────
 echo ""
-echo "[12/16] 文件作用域 static 变量禁止「声明了却没用」"
+echo "[12/17] 文件作用域 static 变量禁止「声明了却没用」"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys, glob
@@ -356,7 +356,7 @@ fi
 
 # ── 13. 版本号单一来源 ──────────────────────────────────────
 echo ""
-echo "[13/16] 版本号一致性（5 处必须完全一致）"
+echo "[13/17] 版本号一致性（5 处必须完全一致）"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys
@@ -396,7 +396,7 @@ fi
 
 # ── 14. Root.plist 的 action 必须真有实现 ───────────────────
 echo ""
-echo "[14/16] Root.plist 的 action 必须在控制器里有实现"
+echo "[14/17] Root.plist 的 action 必须在控制器里有实现"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys
@@ -422,7 +422,7 @@ fi
 
 # ── 15. PreferenceLoader 入口 plist ─────────────────────────
 echo ""
-echo "[15/16] PreferenceLoader 入口 plist（必须是 entry 包裹）"
+echo "[15/17] PreferenceLoader 入口 plist（必须是 entry 包裹）"
 ENTRY="layout/Library/PreferenceLoader/Preferences/WXPet.plist"
 if [ -f "$ENTRY" ]; then
     if grep -q '<key>entry</key>' "$ENTRY"; then
@@ -443,7 +443,7 @@ fi
 
 # ── 16. bundle Info.plist 的 NSPrincipalClass ───────────────
 echo ""
-echo "[16/16] bundle Info.plist 的 NSPrincipalClass"
+echo "[16/17] bundle Info.plist 的 NSPrincipalClass"
 INFO="Preferences/Resources/Info.plist"
 if [ -f "$INFO" ]; then
     if grep -q '<string>WXPetPrefsListController</string>' "$INFO"; then
@@ -455,6 +455,56 @@ if [ -f "$INFO" ]; then
     fi
 else
     bad "$INFO 不存在（放在 Preferences/ 根目录不会被打进 bundle）"
+fi
+
+# ── 17. 已废弃 API（Theos 带 -Werror，一行废弃告警 = 编译失败）──────
+echo ""
+echo "[17/17] iOS 15+ 已废弃 API（-Werror,-Wdeprecated-declarations）"
+if [ -n "$PY" ]; then
+"$PY" - <<'PYEOF'
+import io, re, sys, glob
+# ⭐ 血泪（WXPet v0.1.0 第一轮 CI 就死在这）：
+#   WXPetWindow.m 里写了 [UIApplication sharedApplication].windows，
+#   该属性 iOS 15 起 API_DEPRECATED → 直接
+#     error: 'windows' is deprecated ... [-Werror,-Wdeprecated-declarations]
+#   注意：textLabel / detailTextLabel **不算**（它们的 API_DEPRECATED 结束版本是
+#   100000.0 = 「未来版本」，不触发告警），所以不要把它们加进这张表，会误报。
+BLOCK = [
+    ("[UIApplication sharedApplication].windows", r"sharedApplication\]\s*\.windows"),
+    ("keyWindow", r"\.keyWindow\b"),
+    ("statusBarOrientation", r"statusBarOrientation"),
+    ("beginIgnoringInteractionEvents", r"beginIgnoringInteractionEvents"),
+    ("UIAlertView", r"\bUIAlertView\b"),
+    ("UIActionSheet", r"\bUIActionSheet\b"),
+    ("UIWebView", r"\bUIWebView\b"),
+    ("UISearchDisplayController", r"\bUISearchDisplayController\b"),
+    ("openURL:", r"\bopenURL:"),
+    ("stringByAddingPercentEscapesUsingEncoding", r"stringByAddingPercentEscapesUsingEncoding"),
+]
+files = sorted(glob.glob("*.m") + glob.glob("*.h") + glob.glob("*.x")
+               + glob.glob("Preferences/*.m") + glob.glob("Preferences/*.h"))
+hits = []
+for path in files:
+    raw = io.open(path, encoding="utf-8", errors="replace").read()
+    raw = re.sub(r"/\*.*?\*/", "", raw, flags=re.S)
+    for i, line in enumerate(raw.splitlines(), 1):
+        code = re.sub(r"//.*", "", line)
+        for name, pat in BLOCK:
+            if re.search(pat, code):
+                hits.append((path, i, name, code.strip()[:80]))
+if hits:
+    for p, i, n, l in hits:
+        print("  ❌ %s:%d  用了已废弃 API `%s`" % (p, i, n))
+        print("     %s" % l)
+    print("     改法：换成场景版本（UIWindowScene.windows）；或不得已时用 KVC")
+    print("          （ [app valueForKey:@\"windows\"] ），语义相同但不触发废弃诊断。")
+    sys.exit(1)
+print("  ✅ 未使用 iOS 15+ 已废弃 API")
+sys.exit(0)
+PYEOF
+if [ $? -ne 0 ]; then FAIL=$((FAIL+1)); else PASS=$((PASS+1)); fi
+else
+    bad "缺少 python，跳过该项检查"
 fi
 
 # ── 汇总 ────────────────────────────────────────────────────

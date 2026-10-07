@@ -2,20 +2,34 @@
 #import "WXPCommon.h"
 
 // 挑一个可用的窗口场景。
-// 优先级：前台活跃的 → 第一个 UIWindowScene → 借已有窗口的 scene。
-// 最后那条兜底很关键：SpringBoard 起来早期 connectedScenes 可能还是空的，
-// 但此时已经有系统窗口存在，直接借它的 scene 一样能用。
+// 优先级：前台活跃的 → 第一个 UIWindowScene → 从已有窗口身上借它的 scene。
+//
+// ⚠️⚠️ 血泪（v0.1.0 CI 第一次就死在这）：兜底那一步**不能**写
+//     `[UIApplication sharedApplication].windows` —— 该属性自 iOS 15 起
+//     标记 deprecated，而 Theos 是带 `-Werror` 编译的：
+//         error: 'windows' is deprecated: first deprecated in iOS 15.0
+//                [-Werror,-Wdeprecated-declarations]
+//     一行告警直接变成编译失败。改用 KVC 取值：语义完全一样，但没有编译期
+//     废弃诊断（KVC 走的是运行时的 valueForKey:）。
 static UIWindowScene *WXPBestWindowScene(void) {
+    UIApplication *app = [UIApplication sharedApplication];
+
     UIWindowScene *first = nil;
-    for (UIScene *s in [UIApplication sharedApplication].connectedScenes) {
+    for (UIScene *s in app.connectedScenes) {
         if (![s isKindOfClass:[UIWindowScene class]]) continue;
         UIWindowScene *ws = (UIWindowScene *)s;
         if (!first) first = ws;
         if (ws.activationState == UISceneActivationStateForegroundActive) return ws;
     }
     if (first) return first;
-    for (UIWindow *w in [UIApplication sharedApplication].windows) {
-        if (w.windowScene) return w.windowScene;
+
+    // 兜底：SpringBoard 起来极早期 connectedScenes 可能还是空的，
+    // 但此时系统窗口已经存在 —— 借它的 scene 一样能用。
+    id wins = [app valueForKey:@"windows"];
+    if ([wins isKindOfClass:[NSArray class]]) {
+        for (UIWindow *w in (NSArray *)wins) {
+            if (w.windowScene) return w.windowScene;
+        }
     }
     return nil;
 }
