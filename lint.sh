@@ -19,11 +19,11 @@ if command -v python3 >/dev/null 2>&1; then PY=$(command -v python3)
 elif command -v python >/dev/null 2>&1; then PY=$(command -v python)
 fi
 
-echo "═══ WXPet 静态预检（18 组）═══"
+echo "═══ WXPet 静态预检（19 组）═══"
 echo ""
 
 # ── 1. 打包方案 ──────────────────────────────────────────────
-echo "[1/18] 打包方案（roothide 隐根）"
+echo "[1/19] 打包方案（roothide 隐根）"
 if grep -q 'THEOS_PACKAGE_SCHEME = roothide' Makefile 2>/dev/null; then
     ok "Makefile: THEOS_PACKAGE_SCHEME = roothide"
 else
@@ -44,7 +44,7 @@ fi
 # 这是本项目的**架构底线**：一旦往清单里加了微信，方案就从
 # 「零风险装饰层」变成「逆向第三方 App」，收益为 0、风险极大。
 echo ""
-echo "[2/18] ⭐ 注入清单只允许 SpringBoard"
+echo "[2/19] ⭐ 注入清单只允许 SpringBoard"
 if grep -q 'com.apple.springboard' WXPet.plist 2>/dev/null; then
     ok "filter plist 含 com.apple.springboard"
 else
@@ -64,7 +64,7 @@ fi
 
 # ── 3. ⭐⭐ 禁止抢 key window ────────────────────────────────
 echo ""
-echo "[3/18] ⭐ 禁止 makeKeyAndVisible（抢系统 key window）"
+echo "[3/19] ⭐ 禁止 makeKeyAndVisible（抢系统 key window）"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys
@@ -91,7 +91,7 @@ fi
 
 # ── 4. ⭐⭐ 触摸穿透 ─────────────────────────────────────────
 echo ""
-echo "[4/18] ⭐ hitTest 必须放行宠物区域之外的触摸"
+echo "[4/19] ⭐ hitTest 必须放行宠物区域之外的触摸"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys
@@ -122,7 +122,7 @@ fi
 
 # ── 5. ⭐ windowScene 必须挂 ─────────────────────────────────
 echo ""
-echo "[5/18] ⭐ 窗口必须挂到 windowScene（iOS 13+ 不挂就不显示）"
+echo "[5/19] ⭐ 窗口必须挂到 windowScene（iOS 13+ 不挂就不显示）"
 if grep -q 'windowScene = best' WXPetWindow.m 2>/dev/null; then
     ok "WXPetWindow.m 会设置 windowScene"
 else
@@ -141,7 +141,7 @@ fi
 
 # ── 6. ⭐ 前台判定链路 ───────────────────────────────────────
 echo ""
-echo "[6/18] ⭐ 前台判定：多候选 + 被可见性逻辑使用 + fail-closed"
+echo "[6/19] ⭐ 前台判定：多候选 + 被可见性逻辑使用 + fail-closed"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys
@@ -193,7 +193,7 @@ fi
 
 # ── 7. 禁止手写 %init ───────────────────────────────────────
 echo ""
-echo "[7/18] 禁止手写 %init（Logos 源码实锤：会造成前置引用，编译直接失败）"
+echo "[7/19] 禁止手写 %init（Logos 源码实锤：会造成前置引用，编译直接失败）"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys
@@ -213,7 +213,7 @@ fi
 
 # ── 8. 同一个类只能一个 %hook 块 ────────────────────────────
 echo ""
-echo "[8/18] 同一个类只能有一个 %hook 块"
+echo "[8/19] 同一个类只能有一个 %hook 块"
 DUP=$(grep -oE '^%hook[[:space:]]+[A-Za-z_][A-Za-z0-9_]*' Tweak.x 2>/dev/null | awk '{print $2}' | sort | uniq -d)
 if [ -n "$DUP" ]; then
     bad "以下类出现了多个 %hook 块（后者会覆盖前者，前面的钩子静默失效）：$(echo "$DUP" | tr '\n' ' ')"
@@ -223,7 +223,7 @@ fi
 
 # ── 9. 日志格式串里的字面 % 必须转义 ────────────────────────
 echo ""
-echo "[9/18] 日志格式串的字面 %% 必须写成 %%%%"
+echo "[9/19] 日志格式串的字面 %% 必须写成 %%%%"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys, glob
@@ -271,7 +271,7 @@ fi
 
 # ── 10. objc 运行时函数必须有可见声明 ───────────────────────
 echo ""
-echo "[10/18] objc 运行时函数的可见声明"
+echo "[10/19] objc 运行时函数的可见声明"
 RUNTIME_API='object_getClass|class_getInstanceMethod|class_getMethodImplementation|method_copyReturnType|method_copyArgumentType|method_getTypeEncoding|objc_getClassList|objc_copyClassList|objc_getClass|class_addMethod|method_setImplementation'
 for f in Tweak.x WXPCommon.m WXPFrontmost.m WXPetView.m WXPetWindow.m WXPetManager.m Preferences/WXPetPrefsListController.m; do
     [ -f "$f" ] || continue
@@ -286,7 +286,7 @@ done
 
 # ── 11. ARC 桥接 ────────────────────────────────────────────
 echo ""
-echo "[11/18] ARC 桥接（ObjC 指针当 C 指针用必须 __bridge）"
+echo "[11/19] ARC 桥接（ObjC 指针当 C 指针用必须 __bridge）"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys, glob
@@ -318,7 +318,7 @@ fi
 
 # ── 12. 文件作用域 static 变量必须被使用 ────────────────────
 echo ""
-echo "[12/18] 文件作用域 static 变量禁止「声明了却没用」"
+echo "[12/19] 文件作用域 static 变量禁止「声明了却没用」"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys, glob
@@ -356,7 +356,7 @@ fi
 
 # ── 13. 版本号单一来源 ──────────────────────────────────────
 echo ""
-echo "[13/18] 版本号一致性（5 处必须完全一致）"
+echo "[13/19] 版本号一致性（5 处必须完全一致）"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys
@@ -396,7 +396,7 @@ fi
 
 # ── 14. Root.plist 的 action 必须真有实现 ───────────────────
 echo ""
-echo "[14/18] Root.plist 的 action 必须在控制器里有实现"
+echo "[14/19] Root.plist 的 action 必须在控制器里有实现"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys
@@ -422,7 +422,7 @@ fi
 
 # ── 15. PreferenceLoader 入口 plist ─────────────────────────
 echo ""
-echo "[15/18] PreferenceLoader 入口 plist（必须是 entry 包裹）"
+echo "[15/19] PreferenceLoader 入口 plist（必须是 entry 包裹）"
 ENTRY="layout/Library/PreferenceLoader/Preferences/WXPet.plist"
 if [ -f "$ENTRY" ]; then
     if grep -q '<key>entry</key>' "$ENTRY"; then
@@ -443,7 +443,7 @@ fi
 
 # ── 16. bundle Info.plist 的 NSPrincipalClass ───────────────
 echo ""
-echo "[16/18] bundle Info.plist 的 NSPrincipalClass"
+echo "[16/19] bundle Info.plist 的 NSPrincipalClass"
 INFO="Preferences/Resources/Info.plist"
 if [ -f "$INFO" ]; then
     if grep -q '<string>WXPetPrefsListController</string>' "$INFO"; then
@@ -459,7 +459,7 @@ fi
 
 # ── 17. 已废弃 API（Theos 带 -Werror，一行废弃告警 = 编译失败）──────
 echo ""
-echo "[17/18] iOS 15+ 已废弃 API（-Werror,-Wdeprecated-declarations）"
+echo "[17/19] iOS 15+ 已废弃 API（-Werror,-Wdeprecated-declarations）"
 if [ -n "$PY" ]; then
 "$PY" - <<'PYEOF'
 import io, re, sys, glob
@@ -517,7 +517,7 @@ fi
 #   ③ 执行位必须是 100755 且写进 git 索引 —— 否则 CI 检出后丢执行位，
 #      dpkg 不执行它，「共享目录没建」会让插件静默不工作。
 echo ""
-echo "[18/18] layout/DEBIAN/postinst 存在 / 非空 / 带执行位 / git 索引 100755"
+echo "[18/19] layout/DEBIAN/postinst 存在 / 非空 / 带执行位 / git 索引 100755"
 POSTINST="layout/DEBIAN/postinst"
 if [ ! -f "$POSTINST" ]; then
     bad "$POSTINST 不存在 —— 装完共享目录不会被创建，面板与插件读写不到同一份配置"
@@ -530,7 +530,7 @@ else
     MODE=$(stat -f%Lp "$POSTINST" 2>/dev/null || stat -c%a "$POSTINST" 2>/dev/null)
     D1=$(printf '%s' "$MODE" | cut -c1)
     if [ -n "$D1" ] && [ $(( D1 % 2 )) -eq 1 ]; then
-        ok "$POSTINST 磁盘模式 = $MODE（有执行位）"
+        ok "$POSTINST 磁盘模式 = ${MODE}（有执行位）"
     else
         bad "$POSTINST 磁盘模式 = ${MODE:-未知}（无执行位）→ dpkg 不会执行它"
     fi
@@ -540,6 +540,48 @@ else
     else
         bad "$POSTINST git 索引模式 = ${GIDX:-未跟踪}，应为 100755（git update-index --chmod=+x）"
     fi
+fi
+
+# ── 19. shell 语法地雷：$VAR 紧跟非 ASCII 字符 ────────────────
+# ⭐ 血泪（WXPet v0.1.0 第四轮 CI，栽在自己刚写的第 18 组里）：
+#      ok "... 磁盘模式 = $MODE（有执行位）"
+#    变量后面紧跟全角括号 → macOS 的 bash 把全角字节当成变量名的一部分
+#    → `MODE??: unbound variable`（有 set -u）→ 整个 preflight 直接挂。
+#    ⚠️ 而 Windows 的 Git Bash 上跑得好好的（ctype 表不同）——
+#    只在 macOS 复现，本地预检**测不出来**，所以必须机器化拦截。
+#    规则：变量一律 ${VAR}，尤其后面跟中文标点/汉字时。
+#    （同族坑见第 9 组：ObjC 格式串里的 % 必须写成 %%）
+echo ""
+echo "[19/19] shell 地雷：\$VAR 后禁止紧跟非 ASCII 字节（必须写成 \${VAR}）"
+if [ -n "$PY" ]; then
+"$PY" - <<'PYEOF'
+import io, re, sys, glob
+# 变量名以 [A-Za-z_] 开头，后面直接跟 ≥0x80 的字符 → 命中
+pat = re.compile(r"(?<![\\$])\$[A-Za-z_][A-Za-z0-9_]*[\u0080-\uffff]")
+hits = []
+for path in sorted(set(glob.glob("*.sh") + ["lint.sh"])):
+    try:
+        raw = io.open(path, encoding="utf-8").read()
+    except IOError:
+        continue
+    for i, line in enumerate(raw.splitlines(), 1):
+        # 整行注释不算：注释里写反例（像本组的说明）不该被判违规
+        if line.lstrip().startswith("#"):
+            continue
+        for m in pat.finditer(line):
+            hits.append((path, i, m.group(0)[:24], line.strip()[:90]))
+if hits:
+    for p, i, seg, l in hits:
+        print("  ❌ %s:%d  %r 后紧跟非 ASCII 字节" % (p, i, seg))
+        print("     %s" % l)
+    print("     改法：写成 ${VAR}（花括号必须加）")
+    sys.exit(1)
+print("  ✅ shell 里没有 $VAR 紧跟非 ASCII 的地雷")
+sys.exit(0)
+PYEOF
+if [ $? -ne 0 ]; then FAIL=$((FAIL+1)); else PASS=$((PASS+1)); fi
+else
+    bad "缺少 python，跳过该项检查"
 fi
 
 # ── 汇总 ────────────────────────────────────────────────────
